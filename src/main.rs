@@ -4,10 +4,12 @@ use std::process;
 extern crate reqwest;
 extern crate serde;
 extern crate serde_json;
+extern crate chrono;
 
 #[macro_use]
 extern crate serde_derive;
 
+use chrono::prelude::*;
 /* 
  * {
 "error":false,
@@ -99,20 +101,37 @@ static GLOWING_STAR: &'static str = "\u{1F31F}";
 
 static ONEDAY_URL_BASE: &'static str = "http://api.usno.navy.mil/rstt/oneday";
 
+
+fn get_today() -> String {
+    let local: DateTime<Local> = Local::now();
+    return local.format("%m/%d/%Y").to_string();
+}
+
 fn get_moonicode(phase: &str) -> Result<String, String> {
     match phase.as_ref() {
+        "New Moon" => Ok(NEW_MOON_FACE.to_string()),
         "Waxing Crescent" => Ok(WAXING_CRESCENT.to_string()),
+        "First Quarter" => Ok(FIRST_QUARTER.to_string()),
+        "Waxing Gibbous" => Ok(WAXING_GIBBOUS.to_string()),
+        "Full Moon" => Ok(FULL_MOON_FACE.to_string()),
+        "Waning Gibbous" => Ok(WANING_GIBBOUS.to_string()),
+        "Last Quarter" => Ok(LAST_QUARTER.to_string()),
+        "Waning Crescent" => Ok(WANING_CRESCENT.to_string()),
         _ =>  Err("Unknown phase".to_string())
-
     }
 }
 
 fn try_main() -> Result<(), Box<Error>> {
     let mut target = String::new();
     target.push_str(ONEDAY_URL_BASE);
-    target.push_str("?date=6/17/2018&loc=San Francisco, CA");
+    target.push_str("?date=");
+    target.push_str(&get_today());
+    target.push_str("&loc=San Francisco, CA");
     let body = reqwest::get(target.as_str())?.text()?;
 
+    // TODO: If parsing fails, print the actual body
+    //println!("{}", target);
+    //println!("{}", body);
     let r: SunMoonResponse = serde_json::from_str(&body)?;
 
     match get_moonicode(&r.curphase) {
