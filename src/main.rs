@@ -1,6 +1,10 @@
 
 use std::error::Error;
 use std::process;
+use std::path::Path;
+use std::fs::File;
+use std::io::prelude::*;
+
 extern crate reqwest;
 extern crate serde;
 extern crate serde_json;
@@ -101,6 +105,7 @@ static GLOWING_STAR: &'static str = "\u{1F31F}";
 
 static ONEDAY_URL_BASE: &'static str = "http://api.usno.navy.mil/rstt/oneday";
 
+static CACHE_PATH: &'static str = "/tmp/moon";
 
 fn get_today() -> String {
     let local: DateTime<Local> = Local::now();
@@ -121,7 +126,52 @@ fn get_moonicode(phase: &str) -> Result<String, String> {
     }
 }
 
+fn read_cache() -> Result<String, String> {
+    let cache_path = Path::new(CACHE_PATH);
+
+    if !cache_path.exists() {
+        return Err("No such file".to_owned());
+    }
+
+    let mod_sys_time : std::time::SystemTime = cache_path.metadata().map_err(|e| e.to_string())?
+        .modified().map_err(|e| e.to_string())?;
+    
+    let mod_unix_secs : u64 =  mod_sys_time.duration_since(std::time::UNIX_EPOCH).map_err(|e| e.to_string())?
+        .as_secs();
+
+    let mod_date = Local.from_utc_datetime(&chrono::NaiveDateTime::from_timestamp(mod_unix_secs as i64, 0)).date();
+
+    if mod_date != Local::today() {
+        return Err("Stale cache".to_owned());
+    }
+
+    // Read file
+    let mut f = File::open(cache_path).expect("file not found"); 
+    let mut contents = String::new();
+    f.read_to_string(&mut contents)
+        .expect("something went wrong reading the file");
+
+    Ok(contents)
+}
+
+fn write_cache(phase: &str) {
+    let mut file = File::create("/tmp/moon").unwrap();
+    file.write_all(phase.as_bytes()).unwrap();
+}
+
 fn try_main() -> Result<(), Box<Error>> {
+    
+    match read_cache() {
+        Ok(text) => {
+            println!("{}", text);
+            return Ok(());
+        },
+        Err(e) => {
+            // Do nothing. Maybe print something debug wise?
+        }
+    }
+
+
     let mut target = String::new();
     target.push_str(ONEDAY_URL_BASE);
     target.push_str("?date=");
@@ -134,8 +184,13 @@ fn try_main() -> Result<(), Box<Error>> {
     //println!("{}", body);
     let r: SunMoonResponse = serde_json::from_str(&body)?;
 
-    match get_moonicode(&r.curphase) {
-        Ok(phase) => println!("{}", phase),
+    let phase = get_moonicode(&r.curphase);
+
+    match phase {
+        Ok(phase) => {
+            println!("{}", phase); 
+            write_cache(&phase)
+        },
         // TODO: Propagate this error...
         Err(message) => println!("Don't know phase: {}", r.curphase)
     }
@@ -143,6 +198,7 @@ fn try_main() -> Result<(), Box<Error>> {
 }
 
 fn main() {
+
     if let Err(err) = try_main() {
         eprintln!("{}", err);
         process::exit(1);
