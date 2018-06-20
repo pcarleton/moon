@@ -81,8 +81,8 @@ struct SunMoonResponse {
     sundata: Vec<PhenData>,
     moondata: Vec<PhenData>,
     closestphase: PhaseData,
-    fracillum: String,
-    curphase: String
+    fracillum: Option<String>,
+    curphase: Option<String>
 }
 
 static NEW_MOON: &'static str = "\u{1F311}";
@@ -184,15 +184,19 @@ fn try_main() -> Result<(), Box<Error>> {
     //println!("{}", body);
     let r: SunMoonResponse = serde_json::from_str(&body)?;
 
-    let phase = get_moonicode(&r.curphase);
+    let phase_str = match r.curphase { 
+        Some(cur_phase) => cur_phase,
+        None => r.closestphase.phase
+    };
 
-    match phase {
+
+    match get_moonicode(&phase_str) {
         Ok(phase) => {
             println!("{}", phase); 
             write_cache(&phase)
         },
         // TODO: Propagate this error...
-        Err(message) => println!("Don't know phase: {}", r.curphase)
+        Err(message) => println!("Don't know phase: {}", phase_str)
     }
     Ok(())
 }
