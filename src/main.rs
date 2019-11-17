@@ -1,6 +1,5 @@
 
 use std::error::Error;
-use std::process;
 use std::path::Path;
 use std::fs::File;
 use std::io::prelude::*;
@@ -9,6 +8,7 @@ extern crate reqwest;
 extern crate serde;
 extern crate serde_json;
 extern crate chrono;
+extern crate astro;
 
 #[macro_use]
 extern crate serde_derive;
@@ -201,10 +201,124 @@ fn try_main() -> Result<(), Box<Error>> {
     Ok(())
 }
 
-fn main() {
+fn dt_to_julian(dt: DateTime<Local>) -> astro::time::Date {
+    let now: astro::time::Date = astro::time::Date{
+        year: dt.year() as i16,
+        month: dt.month() as u8,
+        decimal_day: dt.day() as f64,
+        cal_type: astro::time::CalType::Gregorian,
+    };
 
-    if let Err(err) = try_main() {
-        eprintln!("{}", err);
-        process::exit(1);
+    return now;
+}
+
+fn dt_for_phase<'a>(dt: DateTime<Local>, phase: &astro::lunar::Phase) -> Result<DateTime<Local>, &'a str> {
+    let dtj = dt_to_julian(dt);
+    let phase_jd = astro::lunar::time_of_phase(&dtj, &phase);
+    match astro::time::date_frm_julian_day(phase_jd) {
+        Err(why) => {
+            Err(why)
+        }
+        Ok((year, month, day)) => {
+            let secs_from_midnight = (day - day.floor())*(24.0 * 60.0 * 60.0);
+            let time = NaiveTime::from_num_seconds_from_midnight(secs_from_midnight as u32, 0);
+            let utc = Utc.ymd(year.into(), month.into(), day as u32).and_time(time).unwrap();
+            let local: DateTime<Local> = DateTime::from(utc);
+            Ok(local)
+        }
     }
 }
+
+fn phase_to_str(phase: &astro::lunar::Phase) -> &str {
+    match phase {
+        astro::lunar::Phase::New => "New Moon",
+        astro::lunar::Phase::First=> "First Quarter",
+        astro::lunar::Phase::Full=> "Full Moon",
+        astro::lunar::Phase::Last=> "Last Quarter",
+    }
+}
+
+fn print_phase(dt: DateTime<Local>, phase: &astro::lunar::Phase) {
+    match dt_for_phase(dt, phase) {
+        Err(why) => println!("Trouble with phase: {:?}", why),
+        Ok(phase_dt) => {
+            println!("{} {}", phase_to_str(phase), phase_dt.format("%Y/%m/%d").to_string());
+        }
+    }
+}
+
+fn next_phase(phase: &astro::lunar::Phase) -> &str {
+    match phase {
+        astro::lunar::Phase::New => "Waxing Crescent",
+        astro::lunar::Phase::First=> "Waxing Gibbous",
+        astro::lunar::Phase::Full=> "Waning Gibbous",
+        astro::lunar::Phase::Last=> "Waning Crescent",
+    }
+}
+
+fn prev_phase(phase: &astro::lunar::Phase) -> &str {
+    match phase {
+        astro::lunar::Phase::First=> "Waxing Crescent",
+        astro::lunar::Phase::Full => "Waxing Gibbous",
+        astro::lunar::Phase::Last => "Waning Gibbous",
+        astro::lunar::Phase::New => "Waning Crescent",
+    }
+}
+
+// TODO: find the nearest phase
+// Get the list of phases (maybe jump ahead a couple days from the "Last" to get the next New Moon
+// With that last, start from the New moon
+// if its equal on date, then use it, otherwise, continue
+// if the next date is greater, then use "Waxing Crescent"
+// So I need a map of "primary" phase to the "following phase" so I can do a lookup.
+
+
+
+
+fn near_phases(local: DateTime<Local>) {
+    let phases: Vec<&astro::lunar::Phase> = vec![
+        &astro::lunar::Phase::New,
+        &astro::lunar::Phase::First,
+        &astro::lunar::Phase::Full,
+        &astro::lunar::Phase::Last,
+    ];
+    let phase_dates: Vec<(&astro::lunar::Phase, DateTime<Local>)> = phases.iter()
+        .map(|&p| (p, dt_for_phase(local, p).unwrap())).collect();
+
+    for (p, d)  in phase_dates {
+        println!("{} {}", phase_to_str(p), d.format("%Y/%m/%d").to_string());
+    }
+}
+
+fn nearest_phase(dt: DateTime<Local>) -> &'static str {
+    let phases: Vec<&astro::lunar::Phase> = vec![
+        &astro::lunar::Phase::New,
+        &astro::lunar::Phase::First,
+        &astro::lunar::Phase::Full,
+        &astro::lunar::Phase::Last,
+    ];
+    let phase_dates: Vec<(&astro::lunar::Phase, Date<Local>)> = phases.iter()
+        .map(|&p| (p, dt_for_phase(dt, p).unwrap().date())).collect();
+
+    let cur_day = dt.date();
+    for (p, d)  in phase_dates {
+        if d > cur_day {
+            //println!("d ({}) > cur_day ({})", d, cur_day);
+            return prev_phase(p);
+        }
+        if d == cur_day {
+            //println!("d ({}) == cur_day ({})", d, cur_day);
+            return phase_to_str(p);
+        }
+    }
+    "Unknown Phase"
+}
+
+
+fn main() {
+    //let local: DateTime<Local> = Local.ymd(2019, 11, 21).and_hms(0, 0, 0);
+    let local: DateTime<Local> = Local::now();
+    //near_phases(local);
+    println!("{}", get_moonicode(nearest_phase(local)).unwrap());
+}
+
