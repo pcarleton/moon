@@ -53,7 +53,8 @@ fn get_moonicode(phase: &Phase) -> String {
 }
 
 fn fractional_year(dt: DateTime<Local>) -> f64 {
-    let day_component = dt.date().ordinal0() as f64 / DAYS_PER_YEAR;
+    let second_component = dt.num_seconds_from_midnight() as f64 / (24.0 * 60.0 * 60.0);
+    let day_component = (second_component + dt.date().ordinal0() as f64) / DAYS_PER_YEAR;
     dt.year() as f64 + day_component
 }
 
