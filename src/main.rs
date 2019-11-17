@@ -290,6 +290,41 @@ fn near_phases(local: DateTime<Local>) {
     }
 }
 
+fn simple_phase_angle(dt: DateTime<Local>) -> f64 {
+    let year_component = dt.year() - 1900;
+    let day_component = dt.date().ordinal0() as f64 / 365.0;
+    let year_fraction = year_component as f64 + day_component;
+    let k = year_fraction*12.3685;
+
+    k - k.floor()
+}
+
+fn simple_phase(dt: DateTime<Local>) -> &'static str {
+    let phase_angle = simple_phase_angle(dt);
+
+    let buffer = 0.01;
+
+    if phase_angle < (0.0 + buffer) {
+        "New Moon"
+    } else if phase_angle < (0.25 - buffer) {
+        "Waxing Crescent"
+    } else if phase_angle < (0.25 + buffer) {
+        "First Quarter"
+    } else if phase_angle < (0.5 - buffer) {
+        "Waxing Gibbous"
+    } else if phase_angle < (0.5 + buffer) {
+        "Full Moon"
+    } else if phase_angle < (0.75 - buffer) {
+        "Waning Gibbous"
+    } else if phase_angle < (0.75 + buffer) {
+        "Last Quarter"
+    } else if phase_angle < (1.0 - buffer) {
+        "Waning Crescent"
+    } else {
+        "New Moon"
+    }
+}
+
 fn nearest_phase(dt: DateTime<Local>) -> &'static str {
     let phases: Vec<&astro::lunar::Phase> = vec![
         &astro::lunar::Phase::New,
@@ -311,14 +346,26 @@ fn nearest_phase(dt: DateTime<Local>) -> &'static str {
             return phase_to_str(p);
         }
     }
-    "Unknown Phase"
+    next_phase(&astro::lunar::Phase::Last)
+}
+
+fn print_phase_comparison(dt: DateTime<Local>) {
+    let p1 = get_moonicode(nearest_phase(dt)).unwrap();
+    let p2 = get_moonicode(simple_phase(dt)).unwrap();
+    let pa = simple_phase_angle(dt);
+    //near_phases(dt);
+    println!("{} {} {} {:.3}", dt.format("%Y/%m/%d"), p1, p2, pa)
 }
 
 
 fn main() {
+    for d in 1..30 { 
+        let local: DateTime<Local> = Local.ymd(2019, 11, d).and_hms(0, 0, 0);
+        print_phase_comparison(local);
+    }
+
+    near_phases(Local.ymd(2019, 11, 20).and_hms(0, 0, 0));
     //let local: DateTime<Local> = Local.ymd(2019, 11, 21).and_hms(0, 0, 0);
-    let local: DateTime<Local> = Local::now();
-    //near_phases(local);
-    println!("{}", get_moonicode(nearest_phase(local)).unwrap());
+    //let local: DateTime<Local> = Local::now();
 }
 
