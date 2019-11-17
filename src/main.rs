@@ -112,17 +112,27 @@ fn get_today() -> String {
     return local.format("%m/%d/%Y").to_string();
 }
 
-fn get_moonicode(phase: &str) -> Result<String, String> {
-    match phase.as_ref() {
-        "New Moon" => Ok(NEW_MOON_FACE.to_string()),
-        "Waxing Crescent" => Ok(WAXING_CRESCENT.to_string()),
-        "First Quarter" => Ok(FIRST_QUARTER.to_string()),
-        "Waxing Gibbous" => Ok(WAXING_GIBBOUS.to_string()),
-        "Full Moon" => Ok(FULL_MOON_FACE.to_string()),
-        "Waning Gibbous" => Ok(WANING_GIBBOUS.to_string()),
-        "Last Quarter" => Ok(LAST_QUARTER.to_string()),
-        "Waning Crescent" => Ok(WANING_CRESCENT.to_string()),
-        _ =>  Err("Unknown phase".to_string())
+enum Phase {
+    NewMoon,
+    WaxingCrescent,
+    FirstQuarter,
+    WaxingGibbous,
+    FullMoon,
+    WaningGibbous,
+    LastQuarter,
+    WaningCrescent,
+}
+
+fn get_moonicode(phase: &Phase) -> String {
+    match phase {
+        Phase::NewMoon => Ok(NEW_MOON_FACE.to_string()),
+        Phase::WaxingCrescent => Ok(WAXING_CRESCENT.to_string()),
+        Phase::FirstQuarter => Ok(FIRST_QUARTER.to_string()),
+        Phase::WaxingGibbous => Ok(WAXING_GIBBOUS.to_string()),
+        Phase::FullMoon => Ok(FULL_MOON_FACE.to_string()),
+        Phase::WaningGibbous => Ok(WANING_GIBBOUS.to_string()),
+        Phase::LastQuarter => Ok(LAST_QUARTER.to_string()),
+        Phase::WaningCrescent => Ok(WANING_CRESCENT.to_string()),
     }
 }
 
